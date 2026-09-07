@@ -1,0 +1,4 @@
+PRD:
+Das Projekt ist ein Roguelite-Tower-Defense-Spiel im Stile von Bloons TD 6, das taktischen Turmbau mit prozedural generierten Durchläufen verbindet. Spieler müssen Wellen immer stärkerer Gegnerhorden abwehren, während sie nach jedem Sieg aus zufälligen Upgrades, Türmen und Modifikatoren wählen. Jeder Run stellt die Spieler vor neue strategische Herausforderungen und bietet durch permanente Fortschritte einen hohen Wiederspielwert.
+
+Das Kernmerkmal des Spiels ist eine Kombination aus klassischem Tower Defense und einem Draft-System (erst später wenn noch Zeit übrig ist) aus dem Roguelite-Genre. Statt zu Beginn alle Türme freizuschalten, erhalten Spieler nach jeder erfolgreich absolvierten Welle drei zufällig ausgewählte Optionen (z. B. einen neuen Turmtyp, eine globale Schadensverbesserung oder einen negativen Fluch, der die Belohnungen erhöht).
