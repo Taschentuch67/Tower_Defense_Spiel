@@ -1,0 +1,174 @@
+import os
+import sys
+import pygame
+
+from player import Player
+from tower import Ball
+
+# Basis-Pfad des Projektordners ermitteln
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+class Game:
+    """
+    Hauptklasse für das Tower Defense Spiel mit Drag & Drop Menü
+    """
+    def __init__(self, settings):
+        pygame.init()
+        pygame.font.init()
+        
+        self.settings = settings
+        self.screen_size = (self.settings.WIN_WIDTH, self.settings.WIN_HEIGHT)
+        self.screen = pygame.display.set_mode(self.screen_size)
+        pygame.display.set_caption(self.settings.NAME)
+        self.clock = pygame.time.Clock()
+        
+        # UI-Maße für das rechte Menü
+        self.sidebar_width = 200
+        self.game_area_width = self.settings.WIN_WIDTH - self.sidebar_width
+        
+        # Drag & Drop Zustand
+        self.selected_ball_type = None
+        self.dragged_image = None
+        
+        self.is_running = True
+
+    def quit(self):
+        pygame.quit()
+        sys.exit(0)
+
+    def play(self):
+        # Absoluten Pfad zur Grafik zusammenbauen
+        player_image_path = os.path.join(BASE_DIR, "data", "ball_red.png")
+        player = Player(player_image_path, (150, 550))
+
+        # Roter Ball (Player) kleiner skalieren (z. B. 25x25 Pixel)
+        player.image = pygame.transform.scale(player.image, (25, 25))
+        player.rect = player.image.get_rect(center=player.rect.center)
+
+        # Platziertes Spiel-Objekte (Sprite Group)
+        balls = pygame.sprite.Group()
+
+        # Verfügbare Bälle im Menü definieren
+        menu_ball_types = [
+            {"file": "ball_blue.png",  "name": "Blue Ball"},
+            {"file": "ball_black.png", "name": "Black Ball"},
+            {"file": "ball_green.png", "name": "Green Ball"},
+            {"file": "ball_red.png",   "name": "Red Ball"}
+        ]
+
+        # Menü-Icons und Klick-Bereiche (Rects) aufbauen
+        menu_items = []
+        start_y = 40
+        for item in menu_ball_types:
+            img_path = os.path.join(BASE_DIR, "data", item["file"])
+            try:
+                raw_img = pygame.image.load(img_path).convert_alpha()
+                scaled_img = pygame.transform.scale(raw_img, (40, 40))
+            except pygame.error:
+                # Fallback, falls ein Bild fehlt
+                scaled_img = pygame.Surface((40, 40))
+                scaled_img.fill((200, 50, 50))
+
+            # Position der Icons in der rechten Leiste
+            icon_rect = scaled_img.get_rect()
+            icon_rect.topleft = (self.game_area_width + 30, start_y)
+            
+            menu_items.append({
+                "path": img_path,
+                "image": scaled_img,
+                "rect": icon_rect,
+                "name": item["name"]
+            })
+            start_y += 70
+
+        # Haupt-Gameloop
+        while self.is_running:
+            self.clock.tick(60)
+            mouse_pos = pygame.mouse.get_pos()
+
+            # Event-Handling
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.quit()
+
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # Klick im Menü checken (Drag starten)
+                    for item in menu_items:
+                        if item["rect"].collidepoint(mouse_pos):
+                            self.selected_ball_type = item["path"]
+                            self.dragged_image = item["image"]
+                            break
+
+                elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    # Wenn Maustaste losgelassen wird & ein Ball gehalten wurde
+                    if self.selected_ball_type:
+                        # Nur platzieren, wenn die Maus im Spielfeld (links) ist
+                        if mouse_pos[0] < self.game_area_width:
+                            # Temporäres Dummy-Sprite für Kollisionsprüfung an der Mausposition erstellen
+                            dummy_sprite = pygame.sprite.Sprite()
+                            dummy_sprite.rect = self.dragged_image.get_rect(center=mouse_pos)
+                            
+                            # Prüfen, ob an dieser Stelle bereits ein anderer Ball existiert
+                            collision = pygame.sprite.spritecollideany(dummy_sprite, balls)
+                            
+                            if not collision:
+                                new_ball = Ball(self.selected_ball_type, list(mouse_pos))
+                                balls.add(new_ball)
+                        
+                        # Selection zurücksetzen
+                        self.selected_ball_type = None
+                        self.dragged_image = None
+
+            # Steuerung Spieler
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                player.rect.y -= self.settings.SPEED
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                player.rect.y += self.settings.SPEED
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                player.rect.x -= self.settings.SPEED
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                player.rect.x += self.settings.SPEED
+
+            # Updates
+            balls.update()
+            player.update()
+
+            # --- RENDERING ---
+            # 1. Spielfeld-Hintergrund
+            self.screen.fill(self.settings.BG_COLOR)
+
+            # 2. Objekte auf dem Spielfeld zeichnen
+            balls.draw(self.screen)
+            self.screen.blit(player.image, player.rect)
+
+            # 3. Rechtes Menü zeichnen (Sidebar)
+            sidebar_rect = pygame.Rect(self.game_area_width, 0, self.sidebar_width, self.settings.WIN_HEIGHT)
+            pygame.draw.rect(self.screen, (40, 44, 52), sidebar_rect) # Dunkler Hintergrund für Menü
+            pygame.draw.line(self.screen, (100, 100, 100), (self.game_area_width, 0), (self.game_area_width, self.settings.WIN_HEIGHT), 3)
+
+            # 4. Menü-Icons zeichnen
+            for item in menu_items:
+                pygame.draw.rect(self.screen, (60, 65, 75), item["rect"].inflate(10, 10), border_radius=5)
+                self.screen.blit(item["image"], item["rect"])
+
+            # 5. Gezogenen Ball an der Mausposition zeichnen (Drag-Vorschau)
+            if self.dragged_image and self.selected_ball_type:
+                preview_rect = self.dragged_image.get_rect(center=mouse_pos)
+                self.screen.blit(self.dragged_image, preview_rect)
+
+            pygame.display.flip()
+
+
+if __name__ == "__main__":
+    class Settings:
+        WIN_WIDTH = 1000
+        WIN_HEIGHT = 600
+        NAME = "Tower Defense - Ball Placement"
+        BG_COLOR = (34, 139, 34)
+        SPEED = 5
+
+    game_settings = Settings()
+    game = Game(game_settings)
+    game.play()
